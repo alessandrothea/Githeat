@@ -16,6 +16,7 @@ from .core import logger
 from .util import helpers
 
 DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+MONTHS_COLOR = 15
 
 COLORS_GRASS = [0, 22, 28, 34, 40, 46]
 COLORS_SKY = [0, 24, 31, 38, 45, 51]
@@ -68,6 +69,9 @@ class Githeat:
 
         def fill_by(self, first_x):
             self.col += [[None, self.width]] * first_x
+
+        def empty(self):
+            return self.col.count([None, ' ']) == len(self.col)
 
         def __len__(self):
             return len(self.col)
@@ -216,7 +220,7 @@ class Githeat:
 
         #  iterate through from last year date + 7 days and init dict with zeros
         delta = today - last_year
-        flag_skip_til_first_sunday = True
+        flag_skip_til_first_sunday = False
         for i in range(delta.days + 1):
             current_day = last_year + datetime.timedelta(days=i)
             # we need to start from the first sunday, so skip anything before it
@@ -294,20 +298,27 @@ class Githeat:
         self.compute_daily_contribution_map()
         self.normalize_daily_contribution_map()
 
-    def print_graph_month_header(self):
+    def print_graph_month_header(self, matrix):
         """
         Prints and returns a list of months abbreviations header
 
         """
+        today = datetime.date.today()
         # TODO: align months correctly with its month block
-        # months = get_months_with_last_same_as_first(datetime.date.today(), 12)
-        #
-        # for month in months:
-        #     print(colorize(month, ansi=MONTHS_COLOR),
-        #           end=" " * 8,
-        #           )
-        # print()
-        # return months
+        months = helpers.get_months_with_last_same_as_first(datetime.date.today, 12)
+
+        if today.month != next(d for d in matrix[0].col if d != [None, ' '])[0].month:
+            months = months+['']
+
+        empties = [0]+[i+1 for i, w in enumerate(matrix) if w.empty()]+[len(matrix)]
+        month_widths = [empties[i+1]-empties[i] for i in range(len(empties)-1)]
+        header = ''
+        for m, w in zip(months[::-1], month_widths):
+            header += m+' '*(w*len(self.width+self.block_separation_show)-len(m))
+
+        print(header, end="")
+        print()
+        return months
         raise NotImplementedError
 
     def get_matrix_width(self, matrix):
@@ -472,6 +483,8 @@ class Githeat:
                       "consider using the --width {thin, reg, thick},  resizing your "
                       "terminal, or merging months by including --month-merge")
                 return
+
+            self.print_graph_month_header(matrix)
             self.print_graph(matrix)
 
         if self.stat:
